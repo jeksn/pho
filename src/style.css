@@ -123,6 +123,29 @@ button.small-btn { padding: 4px 10px; font-size: 12px; }
 }
 #settings-pane p { margin: 0 0 12px; font-size: 13px; word-break: break-all; }
 #settings-pane .small { font-size: 12px; }
+.vol-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.vol-row:last-child { border-bottom: none; }
+.vol-name { font-weight: 600; font-size: 13px; }
+.vol-badge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--kept);
+  border: 1px solid var(--kept);
+  border-radius: 999px;
+  padding: 1px 7px;
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+.vol-badge.pinned { color: var(--accent); border-color: var(--accent); }
 .row { display: flex; gap: 8px; }
 
 .cards { display: flex; flex-wrap: wrap; gap: 12px; }

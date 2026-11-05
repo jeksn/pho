@@ -109,19 +109,15 @@ function renderCalendar() {
 
 async function refreshVolumes() {
   const el = $('#volumes');
-  const otherEl = $('#other-volumes');
-  const otherH = $('#other-volumes-h');
   el.innerHTML = '';
-  otherEl.innerHTML = '';
   try {
     const [vols, settings] = await Promise.all([invoke('list_volumes'), invoke('get_settings')]);
     const pinned = new Set(settings.pinned || []);
     // a volume counts as a camera if it has a DCIM folder or was pinned explicitly
     const cams = vols.filter((v) => v.has_dcim || pinned.has(v.path));
-    const others = vols.filter((v) => !v.has_dcim && !pinned.has(v.path) && v.file_count > 0);
-
     if (cams.length === 0) {
-      el.innerHTML = '<p class="muted">No camera found under /Volumes. Insert a card, pin a drive below, or use Settings for a manual path.</p>';
+      el.innerHTML = '<p class="muted">No camera found under /Volumes. Insert a card, pin a drive in Settings, or use a manual path there.</p>';
+      return;
     }
     for (const v of cams) {
       const card = document.createElement('div');
@@ -145,27 +141,47 @@ async function refreshVolumes() {
       card.appendChild(row);
       el.appendChild(card);
     }
-
-    if (others.length > 0) {
-      otherH.classList.remove('hidden');
-      for (const v of others) {
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.innerHTML = `
-          <div class="name">${escapeHtml(v.name)}</div>
-          <div class="sub">${escapeHtml(v.path)}<br>${v.file_count} media files · no DCIM</div>`;
-        const btn = document.createElement('button');
-        btn.textContent = 'Pin as source';
-        btn.className = 'ghost small-btn';
-        btn.onclick = async () => { await invoke('toggle_volume_pin', { path: v.path }); await refreshVolumes(); };
-        card.appendChild(btn);
-        otherEl.appendChild(card);
-      }
-    } else {
-      otherH.classList.add('hidden');
-    }
   } catch (e) {
     el.innerHTML = `<p class="muted">Error: ${escapeHtml(String(e))}</p>`;
+  }
+}
+
+// drive list inside the settings drawer: everything mounted, with pin toggles
+async function refreshSettingsVolumes() {
+  const el = $('#settings-volumes');
+  el.innerHTML = '';
+  try {
+    const [vols, settings] = await Promise.all([invoke('list_volumes'), invoke('get_settings')]);
+    const pinned = new Set(settings.pinned || []);
+    if (vols.length === 0) {
+      el.innerHTML = '<p class="muted small">No external drives mounted.</p>';
+      return;
+    }
+    for (const v of vols) {
+      const isCam = v.has_dcim;
+      const isPinned = pinned.has(v.path);
+      const row = document.createElement('div');
+      row.className = 'vol-row';
+      row.innerHTML = `
+        <div>
+          <div class="vol-name">${escapeHtml(v.name)} ${isCam ? '<span class="vol-badge">camera</span>' : isPinned ? '<span class="vol-badge pinned">pinned</span>' : ''}</div>
+          <div class="sub">${escapeHtml(v.path)} · ${v.file_count} media files</div>
+        </div>`;
+      if (!isCam) {
+        const btn = document.createElement('button');
+        btn.textContent = isPinned ? 'Unpin' : 'Pin';
+        btn.className = 'ghost small-btn';
+        btn.onclick = async () => {
+          await invoke('toggle_volume_pin', { path: v.path });
+          await refreshVolumes();
+          await refreshSettingsVolumes();
+        };
+        row.appendChild(btn);
+      }
+      el.appendChild(row);
+    }
+  } catch (e) {
+    el.innerHTML = `<p class="muted small">Error: ${escapeHtml(String(e))}</p>`;
   }
 }
 
@@ -436,7 +452,10 @@ $('#cal-next').onclick = () => {
 document.addEventListener('click', (e) => {
   if (dayMenu && !dayMenu.contains(e.target)) closeDayMenu();
 });
-$('#btn-settings').onclick = () => toggleSettings();
+$('#btn-settings').onclick = () => {
+  toggleSettings();
+  if (!$('#settings-pane').classList.contains('hidden')) refreshSettingsVolumes();
+};
 $('#btn-close-settings').onclick = () => toggleSettings(false);
 backdrop.onclick = () => toggleSettings(false);
 $('#btn-import-manual').onclick = () => startImport($('#manual-path').value.trim());

@@ -24,9 +24,6 @@
             <h2>Camera detected</h2>
             <div id="volumes" class="cards"></div>
 
-            <h2 id="other-volumes-h" class="hidden">Other drives</h2>
-            <div id="other-volumes" class="cards"></div>
-
             <div id="import-progress" class="hidden">
               <div class="bar"><div id="import-bar-fill"></div></div>
               <div id="import-status" class="muted"></div>
@@ -106,6 +103,9 @@
           <button id="btn-save-library">Save</button>
         </div>
         <p class="muted small">Move the imports folder anywhere and update this path — sessions and duplicate detection keep working.</p>
+        <h3>Drives</h3>
+        <div id="settings-volumes"></div>
+        <p class="muted small">Drives with a DCIM folder are treated as cameras automatically. Pin other drives to also show them under Camera detected.</p>
       </aside>
 
       <div id="done-overlay" class="hidden">
