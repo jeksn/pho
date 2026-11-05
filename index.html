@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pho — import &amp; review</title>
+  </head>
+  <body>
+    <div id="app">
+      <!-- Import view -->
+      <section id="view-import" class="view">
+        <div class="import-head">
+          <div>
+            <h1>pho</h1>
+            <p class="muted">Import, sort and review photos from your camera. Keep what you like, discard the rest.</p>
+          </div>
+          <button id="btn-settings" class="ghost" title="Settings">Settings</button>
+        </div>
+
+        <div id="settings-pane" class="hidden">
+          <h2>Manual import path</h2>
+          <div class="row">
+            <input id="manual-path" type="text" placeholder="/Volumes/E-M1" spellcheck="false" />
+            <button id="btn-import-manual">Import</button>
+          </div>
+          <h2>Library location</h2>
+          <p class="muted" id="library-path"></p>
+        </div>
+
+        <h2>Camera detected</h2>
+        <div id="volumes" class="cards"></div>
+
+        <div id="import-progress" class="hidden">
+          <div class="bar"><div id="import-bar-fill"></div></div>
+          <div id="import-status" class="muted"></div>
+        </div>
+
+        <h2>Previous imports</h2>
+        <div id="sessions" class="cards"></div>
+      </section>
+
+      <!-- Review view -->
+      <section id="view-cull" class="view hidden">
+        <header id="cull-header">
+          <button id="btn-back" title="Back to import">&#8592;</button>
+          <div id="session-name"></div>
+          <div id="stats">
+            <span class="chip pending" id="stat-pending"></span>
+            <span class="chip kept" id="stat-kept"></span>
+            <span class="chip discarded" id="stat-discarded"></span>
+          </div>
+          <div id="counter"></div>
+          <button id="btn-reveal" title="Open folder in Finder">Finder</button>
+        </header>
+
+        <main id="cull-main">
+          <div id="preview-wrap">
+            <img id="preview" alt="" draggable="false" />
+            <div id="preview-empty" class="hidden">no preview</div>
+          </div>
+          <div id="shot-info">
+            <div id="shot-name"></div>
+            <div id="shot-files"></div>
+          </div>
+          <div id="actions">
+            <button id="btn-prev" title="Previous (Left arrow)">&#8592; Prev</button>
+            <button id="btn-keep" class="keep" title="Keep (K)">Keep <kbd>K</kbd></button>
+            <button id="btn-cull" class="discard" title="Discard shot — the whole RAW+JPEG pair goes to Trash (X)">Discard <kbd>X</kbd></button>
+            <button id="btn-next" title="Next (Right arrow)">Next &#8594;</button>
+          </div>
+        </main>
+
+        <footer id="grid-wrap">
+          <div id="grid"></div>
+        </footer>
+      </section>
+
+      <div id="done-overlay" class="hidden">
+        <div class="panel">
+          <h2>Session complete</h2>
+          <p id="done-stats"></p>
+          <div class="row">
+            <button id="btn-done-finder">Open in Finder</button>
+            <button id="btn-done-back">Back to imports</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
