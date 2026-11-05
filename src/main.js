@@ -217,6 +217,7 @@ async function openSession(folder) {
   $('#session-name').textContent = folder;
   $('#view-import').classList.add('hidden');
   $('#view-cull').classList.remove('hidden');
+  $('#btn-calendar').classList.add('hidden');
   $('#done-overlay').classList.add('hidden');
   renderStats();
   renderGrid();
@@ -376,6 +377,11 @@ function toggleSettings(open) {
   drawer.classList.toggle('open', o);
   backdrop.classList.toggle('open', o);
 }
+$('#btn-calendar').onclick = () => {
+  const c = $('#calendar');
+  c.classList.toggle('hidden');
+  $('#btn-calendar').classList.toggle('active', !c.classList.contains('hidden'));
+};
 $('#cal-prev').onclick = () => {
   cal.m--;
   if (cal.m < 0) { cal.m = 11; cal.y--; }
@@ -401,6 +407,7 @@ $('#btn-back').onclick = async () => {
   $('#view-cull').classList.add('hidden');
   $('#view-import').classList.remove('hidden');
   $('#done-overlay').classList.add('hidden');
+  $('#btn-calendar').classList.remove('hidden');
   await refreshSessions();
   await refreshVolumes();
 };
