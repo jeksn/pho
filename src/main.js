@@ -404,7 +404,21 @@ $('#btn-settings').onclick = () => toggleSettings();
 $('#btn-close-settings').onclick = () => toggleSettings(false);
 backdrop.onclick = () => toggleSettings(false);
 $('#btn-import-manual').onclick = () => startImport($('#manual-path').value.trim());
-invoke('library_path').then((p) => { $('#library-path').textContent = p; }).catch(() => {});
+invoke('get_settings').then((s) => { $('#library-input').value = s.library; }).catch(() => {});
+$('#btn-save-library').onclick = async () => {
+  const btn = $('#btn-save-library');
+  try {
+    const s = await invoke('set_library_path', { path: $('#library-input').value });
+    btn.textContent = 'Saved';
+    setTimeout(() => { btn.textContent = 'Save'; }, 1200);
+    $('#library-input').value = s.library;
+    await refreshSessions();
+  } catch (e) {
+    btn.textContent = 'Error';
+    setTimeout(() => { btn.textContent = 'Save'; }, 1200);
+    alert(`Could not save: ${e}`);
+  }
+};
 $('#manual-path').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') startImport($('#manual-path').value.trim());
 });

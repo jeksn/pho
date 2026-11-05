@@ -130,8 +130,40 @@ fn home_dir() -> PathBuf {
     PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string()))
 }
 
-fn imports_root() -> PathBuf {
+#[derive(Serialize, Deserialize, Clone)]
+struct Settings {
+    library: String,
+}
+
+fn settings_path() -> PathBuf {
+    home_dir()
+        .join("Library")
+        .join("Application Support")
+        .join("pho")
+        .join("settings.json")
+}
+
+fn default_library() -> PathBuf {
     home_dir().join("Pictures").join("Imports")
+}
+
+// PHO_LIBRARY overrides everything (used by tests); otherwise the saved setting
+fn library_root() -> PathBuf {
+    if let Ok(p) = std::env::var("PHO_LIBRARY") {
+        if !p.is_empty() {
+            return PathBuf::from(p);
+        }
+    }
+    fs::read_to_string(settings_path())
+        .ok()
+        .and_then(|s| serde_json::from_str::<Settings>(&s).ok())
+        .map(|s| PathBuf::from(s.library))
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(default_library)
+}
+
+fn imports_root() -> PathBuf {
+    library_root()
 }
 
 fn ext_of(p: &Path) -> String {
@@ -339,14 +371,18 @@ fn compute_session(folder: &Path) -> (Vec<Shot>, Stats) {
     for s in shots.iter_mut() {
         if let Some(e) = states.shots.get(&s.id) {
             s.state = e.state.clone();
+        }
+        // prefer a preview path from the files on disk — the stored one may be
+        // stale if the library was moved; fall back to it only for discarded shots
+        let fresh = choose_preview(&s.files);
+        if !fresh.is_empty() {
+            s.preview = fresh;
+        } else if let Some(e) = states.shots.get(&s.id) {
             if let Some(p) = &e.preview {
                 if !p.is_empty() {
                     s.preview = p.clone();
                 }
             }
-        }
-        if s.preview.is_empty() {
-            s.preview = choose_preview(&s.files);
         }
     }
     // shots that were discarded (files removed from disk) stay visible from the state file
@@ -807,8 +843,35 @@ fn discard_shot(folder: String, id: String) -> Result<Stats, String> {
 }
 
 #[tauri::command]
-fn library_path() -> String {
-    imports_root().to_string_lossy().to_string()
+fn get_settings() -> Result<Settings, String> {
+    Ok(fs::read_to_string(settings_path())
+        .ok()
+        .and_then(|s| serde_json::from_str::<Settings>(&s).ok())
+        .unwrap_or_else(|| Settings {
+            library: default_library().to_string_lossy().to_string(),
+        }))
+}
+
+#[tauri::command]
+fn set_library_path(path: String) -> Result<Settings, String> {
+    let trimmed = path.trim().to_string();
+    if trimmed.is_empty() {
+        return Err("library path is empty".to_string());
+    }
+    let p = PathBuf::from(&trimmed);
+    fs::create_dir_all(&p).map_err(|e| format!("cannot create {trimmed}: {e}"))?;
+    let settings = Settings {
+        library: p.to_string_lossy().to_string(),
+    };
+    if let Some(parent) = settings_path().parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    fs::write(
+        settings_path(),
+        serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(settings)
 }
 
 #[tauri::command]
@@ -846,7 +909,8 @@ pub fn run() {
             session_stats,
             set_shot_state,
             discard_shot,
-            library_path,
+            get_settings,
+            set_library_path,
             preview,
             reveal
         ])
@@ -1139,6 +1203,31 @@ mod tests {
         let b64 = session_preview_b64(&root, 3);
         assert_eq!(b64.len(), 3);
         assert!(b64.iter().all(|b| b.starts_with("/9j/")));
+    }
+
+    #[test]
+    fn preview_path_self_heals_after_library_move() {
+        let root = tmpdir("move");
+        write(&root.join("IMG_0001.ORF"), "raw");
+        write(&root.join("IMG_0001.JPG"), "jpg");
+        // state file written when the library lived at an old absolute path
+        let mut shots = HashMap::new();
+        shots.insert(
+            "IMG_0001".to_string(),
+            ShotEntry {
+                state: "pending".to_string(),
+                preview: Some("/old/location/IMG_0001.JPG".to_string()),
+            },
+        );
+        save_states(&root, &StateFile { shots }).unwrap();
+
+        let (shots, _) = compute_session(&root);
+        assert!(
+            shots[0].preview.ends_with("IMG_0001.JPG"),
+            "preview should come from disk, not the stale stored path: {}",
+            shots[0].preview
+        );
+        assert!(!shots[0].preview.starts_with("/old/location"));
     }
 
     #[test]

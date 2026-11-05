@@ -121,6 +121,7 @@ button.ghost:hover { color: var(--text); border-color: var(--accent); }
   letter-spacing: 0.06em;
 }
 #settings-pane p { margin: 0 0 12px; font-size: 13px; word-break: break-all; }
+#settings-pane .small { font-size: 12px; }
 .row { display: flex; gap: 8px; }
 
 .cards { display: flex; flex-wrap: wrap; gap: 12px; }
