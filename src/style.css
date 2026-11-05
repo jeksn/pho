@@ -49,8 +49,11 @@ button {
 }
 button:hover { border-color: var(--accent); }
 button:disabled { opacity: 0.5; cursor: default; }
-button.keep { background: rgba(63, 174, 90, 0.18); border-color: var(--kept); }
-button.discard { background: rgba(224, 82, 82, 0.18); border-color: var(--culled); }
+button.keep, button.discard { border: none; color: #fff; font-weight: 600; }
+button.keep { background: var(--kept); }
+button.discard { background: var(--culled); }
+button.keep:hover, button.discard:hover { border-color: transparent; filter: brightness(1.12); }
+button.keep kbd, button.discard kbd { background: rgba(0, 0, 0, 0.22); }
 kbd {
   background: rgba(255, 255, 255, 0.12);
   border-radius: 4px;
@@ -70,7 +73,8 @@ input[type="text"] {
 }
 
 /* import view */
-#view-import { padding: 48px 48px 32px; overflow-y: auto; }
+#view-import { padding: 0 48px 32px; overflow-y: auto; }
+.drag-strip { height: 48px; flex: 0 0 auto; }
 #view-import h1 {
   margin: 0 0 4px;
   font-family: 'Pencerio', -apple-system, BlinkMacSystemFont, sans-serif;

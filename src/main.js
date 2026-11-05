@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import './style.css';
 
 const $ = (s) => document.querySelector(s);
@@ -504,6 +505,16 @@ $('#btn-prev').onclick = () => showShot(state.index - 1);
 $('#btn-reveal').onclick = () => invoke('reveal', { path: state.folder });
 $('#btn-done-finder').onclick = () => invoke('reveal', { path: state.folder });
 $('#btn-done-back').onclick = () => $('#btn-back').click();
+
+// explicit window dragging for the frameless/overlay title bar — app-region
+// drag is unreliable with titleBarStyle overlay, so start a native drag on
+// mousedown inside drag regions (but not on interactive elements)
+document.addEventListener('mousedown', (e) => {
+  if (e.button !== 0) return;
+  if (!e.target.closest('[data-tauri-drag-region]')) return;
+  if (e.target.closest('button, input, a, select, textarea')) return;
+  getCurrentWindow().startDragging().catch(() => {});
+});
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && drawer.classList.contains('open')) {
