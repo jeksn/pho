@@ -13,11 +13,12 @@
     "windows": [
       {
         "label": "main",
-        "title": "pho — import & review",
+        "title": "pho",
         "width": 1280,
         "height": 860,
         "minWidth": 960,
-        "minHeight": 620
+        "minHeight": 620,
+        "decorations": false
       }
     ],
     "security": {

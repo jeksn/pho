@@ -9,7 +9,7 @@
     <div id="app">
       <!-- Import view -->
       <section id="view-import" class="view">
-        <div class="import-head">
+        <div class="import-head" data-tauri-drag-region>
           <div>
             <h1>pho</h1>
             <p class="muted">Import, sort and review photos from your camera. Keep what you like, discard the rest.</p>
@@ -47,7 +47,7 @@
 
       <!-- Review view -->
       <section id="view-cull" class="view hidden">
-        <header id="cull-header">
+        <header id="cull-header" data-tauri-drag-region>
           <button id="btn-back" title="Back to import">&#8592;</button>
           <div id="session-name"></div>
           <div id="stats">

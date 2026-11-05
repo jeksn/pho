@@ -87,7 +87,8 @@ input[type="text"] {
   color: var(--accent);
 }
 #view-import h2 { margin: 22px 0 8px; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
-.import-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.import-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; -webkit-app-region: drag; }
+.import-head button, #cull-header button { -webkit-app-region: no-drag; }
 button.ghost { background: transparent; color: var(--muted); }
 button.ghost:hover { color: var(--text); border-color: var(--accent); }
 
@@ -247,6 +248,7 @@ button.ghost:hover { color: var(--text); border-color: var(--accent); }
   padding: 10px 16px;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag;
 }
 #session-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #stats { display: flex; gap: 8px; }
