@@ -195,8 +195,13 @@ async function startImport(src) {
   });
   try {
     const res = await invoke('import_media', { src });
-    $('#import-status').textContent = `Done: ${res.copied} files → ${res.dest}`;
-    await openSession(res.dest);
+    if (res.copied === 0) {
+      $('#import-status').textContent = `All ${res.total} files were already imported (duplicates skipped). Nothing new.`;
+      await refreshSessions();
+    } else {
+      $('#import-status').textContent = `Done: ${res.copied} copied, ${res.duplicates} duplicates skipped → ${res.dest}`;
+      await openSession(res.dest);
+    }
   } catch (e) {
     $('#import-status').textContent = `Import failed: ${e}`;
   } finally {

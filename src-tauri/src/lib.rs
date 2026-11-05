@@ -1,8 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::hash::{Hash, Hasher};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::UNIX_EPOCH;
@@ -56,6 +58,8 @@ const VIDEO_EXTS: &[&str] = &[
 ];
 const AUDIO_EXTS: &[&str] = &["wav", "mp3", "m4a", "aac", "aiff", "aif", "flac"];
 const STATE_FILE: &str = ".pho.json";
+// library-wide content-hash index: lines of "<sha256>\t<path relative to library root>"
+const INDEX_FILE: &str = ".pho-index";
 
 #[derive(Serialize, Clone)]
 struct VolumeInfo {
@@ -106,6 +110,7 @@ struct ImportSummary {
     dest: String,
     total: usize,
     copied: usize,
+    duplicates: usize,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -443,6 +448,42 @@ fn unique_dest(root: &Path, date: &str) -> PathBuf {
     cand
 }
 
+fn hash_file(p: &Path) -> Result<String, String> {
+    let mut f = fs::File::open(p).map_err(|e| format!("open {}: {e}", p.display()))?;
+    let mut h = Sha256::new();
+    std::io::copy(&mut f, &mut h).map_err(|e| e.to_string())?;
+    Ok(format!("{:x}", h.finalize()))
+}
+
+fn load_index(root: &Path) -> HashSet<String> {
+    fs::read_to_string(root.join(INDEX_FILE))
+        .ok()
+        .map(|s| {
+            s.lines()
+                .filter_map(|l| l.split('\t').next().map(|h| h.to_string()))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+// one-time: hash everything already in the library so old imports count as duplicates
+fn build_index(root: &Path) -> HashSet<String> {
+    let mut set = HashSet::new();
+    let mut files = Vec::new();
+    walk_files(root, &mut files);
+    let mut out = String::new();
+    for f in files {
+        if let Ok(h) = hash_file(&f) {
+            if let Ok(rel) = f.strip_prefix(root) {
+                out.push_str(&format!("{h}\t{}\n", rel.to_string_lossy()));
+            }
+            set.insert(h);
+        }
+    }
+    let _ = fs::write(root.join(INDEX_FILE), out);
+    set
+}
+
 fn do_import(
     src: &Path,
     dest_root: &Path,
@@ -458,23 +499,68 @@ fn do_import(
     if total == 0 {
         return Err("no files found on source".to_string());
     }
-    let dest = unique_dest(dest_root, date);
-    fs::create_dir_all(&dest).map_err(|e| e.to_string())?;
+    fs::create_dir_all(dest_root).map_err(|e| e.to_string())?;
+    let index_path = dest_root.join(INDEX_FILE);
+    let mut index: HashSet<String> = if index_path.is_file() {
+        load_index(dest_root)
+    } else {
+        build_index(dest_root)
+    };
+
+    let mut dest: Option<PathBuf> = None;
     let mut copied = 0usize;
+    let mut duplicates = 0usize;
+    let mut new_index_lines = String::new();
     for (i, f) in files.iter().enumerate() {
+        let name = f.file_name().unwrap_or_default().to_string_lossy().to_string();
+        progress(i + 1, total, &name);
+        let hash = hash_file(f)?;
+        if index.contains(&hash) {
+            duplicates += 1;
+            continue;
+        }
+        index.insert(hash.clone());
+        let dest = match &dest {
+            Some(d) => d.clone(),
+            None => {
+                let d = unique_dest(dest_root, date);
+                fs::create_dir_all(&d).map_err(|e| e.to_string())?;
+                dest = Some(d.clone());
+                d
+            }
+        };
         let rel = f.strip_prefix(src).map_err(|e| e.to_string())?;
         let target = dest.join(rel);
         if let Some(parent) = target.parent() {
             fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
         fs::copy(f, &target).map_err(|e| format!("copy failed for {}: {e}", f.display()))?;
+        if let Ok(rel_to_root) = target.strip_prefix(dest_root) {
+            new_index_lines.push_str(&format!("{hash}\t{}\n", rel_to_root.to_string_lossy()));
+        }
         copied += 1;
-        progress(
-            i + 1,
-            total,
-            &f.file_name().unwrap_or_default().to_string_lossy(),
-        );
     }
+
+    let dest = match dest {
+        Some(d) => d,
+        None => {
+            // everything on the card was already imported
+            return Ok(ImportSummary {
+                dest: String::new(),
+                total,
+                copied,
+                duplicates,
+            });
+        }
+    };
+    // append new hashes to the library index
+    let mut idx = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&index_path)
+        .map_err(|e| e.to_string())?;
+    idx.write_all(new_index_lines.as_bytes())
+        .map_err(|e| e.to_string())?;
     // seed state file so discarded shots remain visible after their files are removed
     let shots = group_shots(&dest);
     let mut states = StateFile::default();
@@ -492,6 +578,7 @@ fn do_import(
         dest: dest.to_string_lossy().to_string(),
         total,
         copied,
+        duplicates,
     })
 }
 
@@ -822,9 +909,9 @@ mod tests {
     #[test]
     fn import_copies_skips_junk_and_seeds_state() {
         let cam = tmpdir("cam");
-        write(&cam.join("DCIM/100CANON/IMG_0001.ARW"), "raw");
-        write(&cam.join("DCIM/100CANON/IMG_0001.JPG"), "jpg");
-        write(&cam.join("DCIM/100CANON/IMG_0002.JPG"), "jpg");
+        write(&cam.join("DCIM/100CANON/IMG_0001.ARW"), "raw1");
+        write(&cam.join("DCIM/100CANON/IMG_0001.JPG"), "jpg1");
+        write(&cam.join("DCIM/100CANON/IMG_0002.JPG"), "jpg2");
         write(&cam.join(".Trashes/junk.jpg"), "junk");
         write(&cam.join("._IMG_0001.JPG"), "appledouble");
         let dest_root = tmpdir("dest");
@@ -840,9 +927,31 @@ mod tests {
         assert_eq!(states.shots.len(), 2);
         assert_eq!(states.shots["DCIM/100CANON/IMG_0001"].state, "pending");
 
-        // second import same day gets a suffix
+        // re-importing the same card: everything is a duplicate, nothing copied
         let sum2 = do_import(&cam, &dest_root, "2026-02-14", &|_d, _t, _n| {}).unwrap();
-        assert!(sum2.dest.ends_with("2026-02-14-2"));
+        assert_eq!(sum2.copied, 0);
+        assert_eq!(sum2.duplicates, 3);
+        assert!(sum2.dest.is_empty());
+
+        // a new file on the card gets imported into a suffixed folder
+        write(&cam.join("DCIM/100CANON/IMG_0003.JPG"), "jpg3");
+        let sum3 = do_import(&cam, &dest_root, "2026-02-14", &|_d, _t, _n| {}).unwrap();
+        assert_eq!(sum3.copied, 1);
+        assert_eq!(sum3.duplicates, 3);
+        assert!(sum3.dest.ends_with("2026-02-14-2"));
+        assert!(Path::new(&sum3.dest).join("DCIM/100CANON/IMG_0003.JPG").is_file());
+    }
+
+    #[test]
+    fn import_skips_identical_files_within_source() {
+        let cam = tmpdir("dupsrc");
+        write(&cam.join("A/IMG_0001.JPG"), "same-content");
+        write(&cam.join("B/IMG_0001.JPG"), "same-content");
+        write(&cam.join("B/IMG_0002.JPG"), "different");
+        let dest_root = tmpdir("dupdest");
+        let sum = do_import(&cam, &dest_root, "2026-02-14", &|_d, _t, _n| {}).unwrap();
+        assert_eq!(sum.copied, 2);
+        assert_eq!(sum.duplicates, 1);
     }
 
     #[test]

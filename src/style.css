@@ -186,15 +186,17 @@ button.ghost:hover { color: var(--text); border-color: var(--accent); }
 .light-btn {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
   background: var(--accent);
   color: #141416;
   border: 1px solid transparent;
   border-radius: 999px;
-  font-weight: 600;
 }
 .light-btn:hover { border-color: transparent; filter: brightness(1.06); }
-.light-btn svg { width: 15px; height: 15px; }
+.light-btn svg { width: 17px; height: 17px; }
 
 /* floating calendar toggle, bottom right */
 .fab {
@@ -202,7 +204,6 @@ button.ghost:hover { color: var(--text); border-color: var(--accent); }
   right: 18px;
   bottom: 18px;
   z-index: 15;
-  padding: 10px 18px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
 }
 .fab.active { background: #141416; color: var(--accent); }
