@@ -304,6 +304,10 @@ function renderGrid() {
     label.className = 'label';
     label.textContent = shot.name;
     cell.appendChild(label);
+    const stamp = document.createElement('div');
+    stamp.className = 'stamp';
+    stamp.innerHTML = '<span>Discarded</span>';
+    cell.appendChild(stamp);
     cell.onclick = () => showShot(i);
     grid.appendChild(cell);
     enqueueThumb(i, img);
@@ -342,7 +346,15 @@ async function showShot(i) {
   if (state.shots.length === 0) return;
   state.index = Math.max(0, Math.min(i, state.shots.length - 1));
   const shot = state.shots[state.index];
-  $('#shot-name').textContent = `${shot.name}${shot.dir ? '  ·  ' + shot.dir : ''}`;
+  const chip =
+    shot.state === 'discarded'
+      ? '<span class="state-chip discarded">Discarded</span>'
+      : shot.state === 'kept'
+        ? '<span class="state-chip kept">Kept</span>'
+        : '';
+  $('#shot-name').innerHTML = `${escapeHtml(shot.name)}${shot.dir ? '  ·  ' + escapeHtml(shot.dir) : ''}${chip}`;
+  $('#preview-wrap').classList.toggle('discarded', shot.state === 'discarded');
+  $('#preview-stamp').classList.toggle('hidden', shot.state !== 'discarded');
   const filesEl = $('#shot-files');
   filesEl.innerHTML = '';
   for (const f of shot.files) {
