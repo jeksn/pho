@@ -1,13 +1,28 @@
+/* Pencerio variable font, via Fontshare (free license) — https://www.fontshare.com/fonts/pencerio */
+@font-face {
+  font-family: 'Pencerio';
+  src: url('./assets/fonts/pencerio.woff2') format('woff2');
+  font-weight: 50 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --bg: #141416;
   --panel: #1e1e22;
   --panel2: #26262b;
   --text: #e8e8ea;
   --muted: #9a9aa2;
-  --accent: #5b8def;
+  --accent: #FFFFE3;
   --kept: #3fae5a;
   --culled: #e05252;
   --border: #333338;
+}
+
+h1, h2 {
+  font-family: 'Pencerio', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 * { box-sizing: border-box; }
@@ -58,7 +73,7 @@ input[type="text"] {
 
 /* import view */
 #view-import { padding: 32px 48px; overflow-y: auto; }
-#view-import h1 { margin: 0 0 4px; font-size: 28px; }
+#view-import h1 { margin: 0 0 4px; font-size: 34px; color: var(--accent); }
 #view-import h2 { margin: 28px 0 10px; font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .import-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
 button.ghost { background: transparent; color: var(--muted); }
