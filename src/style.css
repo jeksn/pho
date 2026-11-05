@@ -249,7 +249,7 @@ button.ghost:hover { color: var(--text); border-color: var(--accent); }
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 10px 16px;
+  padding: 30px 16px 10px; /* top padding clears the traffic lights (overlay title bar) */
   background: var(--panel);
   border-bottom: 1px solid var(--border);
   -webkit-app-region: drag;
