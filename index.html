@@ -17,16 +17,6 @@
           <button id="btn-settings" class="ghost" title="Settings">Settings</button>
         </div>
 
-        <div id="settings-pane" class="hidden">
-          <h2>Manual import path</h2>
-          <div class="row">
-            <input id="manual-path" type="text" placeholder="/Volumes/E-M1" spellcheck="false" />
-            <button id="btn-import-manual">Import</button>
-          </div>
-          <h2>Library location</h2>
-          <p class="muted" id="library-path"></p>
-        </div>
-
         <h2>Camera detected</h2>
         <div id="volumes" class="cards"></div>
 
@@ -74,6 +64,21 @@
           <div id="grid"></div>
         </footer>
       </section>
+
+      <div id="drawer-backdrop"></div>
+      <aside id="settings-pane">
+        <div class="drawer-head">
+          <h2>Settings</h2>
+          <button id="btn-close-settings" class="ghost" title="Close (Esc)">Close</button>
+        </div>
+        <h3>Manual import path</h3>
+        <div class="row">
+          <input id="manual-path" type="text" placeholder="/Volumes/E-M1" spellcheck="false" />
+          <button id="btn-import-manual">Import</button>
+        </div>
+        <h3>Library location</h3>
+        <p class="muted" id="library-path"></p>
+      </aside>
 
       <div id="done-overlay" class="hidden">
         <div class="panel">

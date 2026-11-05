@@ -69,6 +69,10 @@ struct VolumeInfo {
 struct SessionInfo {
     name: String,
     path: String,
+    total: usize,
+    pending: usize,
+    kept: usize,
+    discarded: usize,
 }
 
 #[derive(Serialize, Clone)]
@@ -649,15 +653,48 @@ fn list_sessions() -> Result<Vec<SessionInfo>, String> {
         for e in rd.flatten() {
             let p = e.path();
             if p.is_dir() {
+                let (_, stats) = compute_session(&p);
                 out.push(SessionInfo {
                     name: e.file_name().to_string_lossy().to_string(),
                     path: p.to_string_lossy().to_string(),
+                    total: stats.total,
+                    pending: stats.pending,
+                    kept: stats.kept,
+                    discarded: stats.discarded,
                 });
             }
         }
     }
     out.sort_by(|a, b| b.name.cmp(&a.name));
     Ok(out)
+}
+
+// pick up to `limit` preview paths, evenly spaced across the session's shots
+fn pick_session_previews(folder: &Path, limit: u32) -> Vec<String> {
+    let (shots, _) = compute_session(folder);
+    let with_preview: Vec<&Shot> = shots.iter().filter(|s| !s.preview.is_empty()).collect();
+    let n = with_preview.len();
+    if n == 0 {
+        return Vec::new();
+    }
+    let take = (limit as usize).max(1).min(n);
+    (0..take)
+        .map(|i| with_preview[i * n / take].preview.clone())
+        .collect()
+}
+
+fn session_preview_b64(folder: &Path, limit: u32) -> Vec<String> {
+    pick_session_previews(folder, limit)
+        .iter()
+        .filter_map(|p| preview_base64(p, 240).ok())
+        .collect()
+}
+
+#[tauri::command]
+async fn session_previews(folder: String, limit: u32) -> Result<Vec<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || Ok(session_preview_b64(Path::new(&folder), limit)))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -717,6 +754,7 @@ pub fn run() {
             list_volumes,
             import_media,
             list_sessions,
+            session_previews,
             list_shots,
             session_stats,
             set_shot_state,
@@ -970,6 +1008,28 @@ mod tests {
         assert_eq!(shots[1].files.len(), 3);
         let kinds: Vec<&str> = shots[1].files.iter().map(|f| f.kind.as_str()).collect();
         assert!(kinds.contains(&"video") && kinds.contains(&"image") && kinds.contains(&"audio"));
+    }
+
+    #[test]
+    fn session_previews_are_capped_and_evenly_spaced() {
+        let root = tmpdir("sessprev");
+        let icon = Path::new(env!("CARGO_MANIFEST_DIR")).join("icons/icon.png");
+        for i in 1..=10 {
+            fs::copy(&icon, root.join(format!("IMG_{i:04}.JPG"))).unwrap();
+        }
+        let picks = pick_session_previews(&root, 4);
+        let names: Vec<String> = picks
+            .iter()
+            .map(|p| Path::new(p).file_name().unwrap().to_string_lossy().to_string())
+            .collect();
+        assert_eq!(names, vec!["IMG_0001.JPG", "IMG_0003.JPG", "IMG_0006.JPG", "IMG_0008.JPG"]);
+
+        // limit above shot count returns all shots
+        assert_eq!(pick_session_previews(&root, 99).len(), 10);
+        // and the base64 variant produces jpeg data
+        let b64 = session_preview_b64(&root, 3);
+        assert_eq!(b64.len(), 3);
+        assert!(b64.iter().all(|b| b.starts_with("/9j/")));
     }
 
     #[test]

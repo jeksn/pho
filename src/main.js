@@ -54,18 +54,33 @@ async function refreshSessions() {
   for (const s of sessions) {
     const card = document.createElement('div');
     card.className = 'card';
-    card.innerHTML = `<div class="name">${escapeHtml(s.name)}</div><div class="sub">${escapeHtml(s.path)}</div>`;
+    card.innerHTML = `
+      <div class="name">${escapeHtml(s.name)}</div>
+      <div class="sub">${escapeHtml(s.path)}</div>
+      <div class="sub">${s.total} shots · ${s.kept} kept · ${s.discarded} discarded · ${s.pending} pending</div>
+      <div class="preview-strip"></div>`;
     const btn = document.createElement('button');
     btn.textContent = 'Open';
     btn.onclick = () => openSession(s.path);
     card.appendChild(btn);
     el.appendChild(card);
+    invoke('session_previews', { folder: s.path, limit: 6 }).then((previews) => {
+      const strip = card.querySelector('.preview-strip');
+      for (const b64 of previews) {
+        const img = document.createElement('img');
+        img.src = `data:image/jpeg;base64,${b64}`;
+        img.alt = '';
+        img.loading = 'lazy';
+        strip.appendChild(img);
+      }
+    }).catch(() => {});
   }
 }
 
 async function startImport(src) {
   if (!src || state.busy) return;
   state.busy = true;
+  toggleSettings(false);
   $('#import-progress').classList.remove('hidden');
   $('#import-bar-fill').style.width = '0%';
   $('#import-status').textContent = 'Starting…';
@@ -250,7 +265,16 @@ function escapeHtml(s) {
 
 // ---------- wiring ----------
 
-$('#btn-settings').onclick = () => $('#settings-pane').classList.toggle('hidden');
+const drawer = $('#settings-pane');
+const backdrop = $('#drawer-backdrop');
+function toggleSettings(open) {
+  const o = open === undefined ? !drawer.classList.contains('open') : open;
+  drawer.classList.toggle('open', o);
+  backdrop.classList.toggle('open', o);
+}
+$('#btn-settings').onclick = () => toggleSettings();
+$('#btn-close-settings').onclick = () => toggleSettings(false);
+backdrop.onclick = () => toggleSettings(false);
 $('#btn-import-manual').onclick = () => startImport($('#manual-path').value.trim());
 invoke('library_path').then((p) => { $('#library-path').textContent = p; }).catch(() => {});
 $('#manual-path').addEventListener('keydown', (e) => {
@@ -272,6 +296,10 @@ $('#btn-done-finder').onclick = () => invoke('reveal', { path: state.folder });
 $('#btn-done-back').onclick = () => $('#btn-back').click();
 
 document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && drawer.classList.contains('open')) {
+    toggleSettings(false);
+    return;
+  }
   if (!$('#view-cull').classList.contains('hidden')) {
     if (e.key === 'ArrowRight') { e.preventDefault(); showShot(state.index + 1); }
     else if (e.key === 'ArrowLeft') { e.preventDefault(); showShot(state.index - 1); }
