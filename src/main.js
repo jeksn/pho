@@ -9,11 +9,101 @@ const state = {
   shots: [],
   index: 0,
   stats: null,
+  sessions: [],
   previewUrls: new Map(), // key: `${size}:${path}` -> data url
   thumbQueue: [],
   thumbRunning: 0,
   busy: false,
 };
+
+// ---------- calendar ----------
+
+const cal = { y: 0, m: 0 }; // m is 0-based; y=0 means "not initialized yet"
+let dayMenu = null;
+
+function sessionDateKey(s) {
+  const mt = s.name.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return mt ? `${mt[1]}-${mt[2]}-${mt[3]}` : null;
+}
+
+function closeDayMenu() {
+  if (dayMenu) {
+    dayMenu.remove();
+    dayMenu = null;
+  }
+}
+
+function showDayMenu(anchor, list) {
+  closeDayMenu();
+  const menu = document.createElement('div');
+  menu.className = 'day-menu';
+  for (const s of list) {
+    const b = document.createElement('button');
+    b.textContent = `${s.name} (${s.total} shots)`;
+    b.onclick = (e) => {
+      e.stopPropagation();
+      closeDayMenu();
+      openSession(s.path);
+    };
+    menu.appendChild(b);
+  }
+  document.body.appendChild(menu);
+  const r = anchor.getBoundingClientRect();
+  menu.style.top = `${r.bottom + window.scrollY + 4}px`;
+  menu.style.left = `${r.left + window.scrollX}px`;
+  dayMenu = menu;
+}
+
+function renderCalendar() {
+  const byDay = new Map();
+  for (const s of state.sessions) {
+    const key = sessionDateKey(s);
+    if (!key) continue;
+    if (!byDay.has(key)) byDay.set(key, []);
+    byDay.get(key).push(s);
+  }
+  $('#cal-title').textContent = new Date(cal.y, cal.m, 1).toLocaleDateString('en', {
+    month: 'long',
+    year: 'numeric',
+  });
+  const grid = $('#cal-days');
+  grid.innerHTML = '';
+  const startOffset = (new Date(cal.y, cal.m, 1).getDay() + 6) % 7; // Monday-first
+  const daysInMonth = new Date(cal.y, cal.m + 1, 0).getDate();
+  const now = new Date();
+  for (let i = 0; i < startOffset; i++) {
+    const pad = document.createElement('div');
+    pad.className = 'cal-cell empty';
+    grid.appendChild(pad);
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const cell = document.createElement('div');
+    cell.className = 'cal-cell';
+    if (d === now.getDate() && cal.m === now.getMonth() && cal.y === now.getFullYear()) {
+      cell.classList.add('today');
+    }
+    cell.innerHTML = `<span>${d}</span>`;
+    const key = `${cal.y}-${String(cal.m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const list = byDay.get(key);
+    if (list) {
+      cell.classList.add('has');
+      cell.title = list.map((s) => `${s.name} — ${s.total} shots, ${s.pending} pending`).join('\n');
+      const badge = document.createElement('span');
+      badge.className = 'badge';
+      badge.textContent = list.length;
+      cell.appendChild(badge);
+      cell.onclick = (e) => {
+        e.stopPropagation();
+        if (list.length === 1) {
+          openSession(list[0].path);
+        } else {
+          showDayMenu(cell, list);
+        }
+      };
+    }
+    grid.appendChild(cell);
+  }
+}
 
 // ---------- import view ----------
 
@@ -47,6 +137,20 @@ async function refreshSessions() {
   const el = $('#sessions');
   el.innerHTML = '';
   const sessions = await invoke('list_sessions');
+  state.sessions = sessions;
+  if (cal.y === 0) {
+    // default to the month of the latest import, else today
+    const mt = sessions[0] && sessionDateKey(sessions[0]);
+    if (mt) {
+      cal.y = Number(mt.slice(0, 4));
+      cal.m = Number(mt.slice(5, 7)) - 1;
+    } else {
+      const now = new Date();
+      cal.y = now.getFullYear();
+      cal.m = now.getMonth();
+    }
+  }
+  renderCalendar();
   if (sessions.length === 0) {
     el.innerHTML = '<p class="muted">No imports yet.</p>';
     return;
@@ -272,6 +376,19 @@ function toggleSettings(open) {
   drawer.classList.toggle('open', o);
   backdrop.classList.toggle('open', o);
 }
+$('#cal-prev').onclick = () => {
+  cal.m--;
+  if (cal.m < 0) { cal.m = 11; cal.y--; }
+  renderCalendar();
+};
+$('#cal-next').onclick = () => {
+  cal.m++;
+  if (cal.m > 11) { cal.m = 0; cal.y++; }
+  renderCalendar();
+};
+document.addEventListener('click', (e) => {
+  if (dayMenu && !dayMenu.contains(e.target)) closeDayMenu();
+});
 $('#btn-settings').onclick = () => toggleSettings();
 $('#btn-close-settings').onclick = () => toggleSettings(false);
 backdrop.onclick = () => toggleSettings(false);
