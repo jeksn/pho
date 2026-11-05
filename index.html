@@ -17,29 +17,32 @@
           <button id="btn-settings" class="ghost" title="Settings">Settings</button>
         </div>
 
-        <h2>Camera detected</h2>
-        <div id="volumes" class="cards"></div>
+        <div class="import-body">
+          <div class="import-main">
+            <h2>Camera detected</h2>
+            <div id="volumes" class="cards"></div>
 
-        <div id="import-progress" class="hidden">
-          <div class="bar"><div id="import-bar-fill"></div></div>
-          <div id="import-status" class="muted"></div>
-        </div>
+            <div id="import-progress" class="hidden">
+              <div class="bar"><div id="import-bar-fill"></div></div>
+              <div id="import-status" class="muted"></div>
+            </div>
 
-        <h2>Calendar</h2>
-        <div id="calendar">
-          <div class="cal-head">
-            <button id="cal-prev" class="ghost" title="Previous month">&#8592;</button>
-            <div id="cal-title"></div>
-            <button id="cal-next" class="ghost" title="Next month">&#8594;</button>
+            <h2>Previous imports</h2>
+            <div id="sessions" class="cards"></div>
           </div>
-          <div class="cal-grid cal-dow">
-            <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
-          </div>
-          <div class="cal-grid" id="cal-days"></div>
-        </div>
 
-        <h2>Previous imports</h2>
-        <div id="sessions" class="cards"></div>
+          <aside id="calendar">
+            <div class="cal-head">
+              <button id="cal-prev" class="ghost" title="Previous month">&#8592;</button>
+              <div id="cal-title"></div>
+              <button id="cal-next" class="ghost" title="Next month">&#8594;</button>
+            </div>
+            <div class="cal-grid cal-dow">
+              <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
+            </div>
+            <div class="cal-grid" id="cal-days"></div>
+          </aside>
+        </div>
       </section>
 
       <!-- Review view -->

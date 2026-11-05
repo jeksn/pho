@@ -19,11 +19,7 @@
   --border: #333338;
 }
 
-h1, h2 {
-  font-family: 'Pencerio', -apple-system, BlinkMacSystemFont, sans-serif;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-}
+/* Pencerio is a script font — used only for the app name, not body headings */
 
 * { box-sizing: border-box; }
 
@@ -73,7 +69,14 @@ input[type="text"] {
 
 /* import view */
 #view-import { padding: 32px 48px; overflow-y: auto; }
-#view-import h1 { margin: 0 0 4px; font-size: 34px; color: var(--accent); }
+#view-import h1 {
+  margin: 0 0 4px;
+  font-family: 'Pencerio', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 46px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent);
+}
 #view-import h2 { margin: 28px 0 10px; font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .import-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
 button.ghost { background: transparent; color: var(--muted); }
@@ -141,24 +144,40 @@ button.ghost:hover { color: var(--text); border-color: var(--accent); }
   background: var(--panel2);
 }
 
-/* calendar */
-#calendar { max-width: 560px; margin-bottom: 8px; }
-.cal-head { display: flex; align-items: center; justify-content: space-between; max-width: 300px; margin-bottom: 8px; }
-#cal-title { font-family: 'Pencerio', -apple-system, sans-serif; font-weight: 600; font-size: 16px; }
-.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+/* import view layout: main column + calendar sidebar */
+.import-body { display: flex; gap: 24px; align-items: flex-start; flex: 1; min-height: 0; }
+.import-main { flex: 1; min-width: 0; }
+
+/* calendar sidebar */
+#calendar {
+  flex: 0 0 252px;
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+}
+.cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+#cal-title { font-weight: 600; font-size: 14px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
 .cal-dow { margin-bottom: 4px; }
-.cal-dow span { color: var(--muted); font-size: 10px; text-align: center; text-transform: uppercase; letter-spacing: 0.05em; }
+.cal-dow span { color: var(--muted); font-size: 9px; text-align: center; text-transform: uppercase; }
 .cal-cell {
   position: relative;
   aspect-ratio: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  font-size: 12px;
+  border-radius: 6px;
+  background: var(--panel2);
+  border: 1px solid transparent;
+  font-size: 11px;
   color: var(--muted);
+}
+@media (max-width: 900px) {
+  .import-body { flex-direction: column; }
+  #calendar { flex: none; width: 100%; max-width: 360px; position: static; }
 }
 .cal-cell.empty { background: transparent; border: none; }
 .cal-cell.has { color: var(--text); border-color: var(--accent); cursor: pointer; }
