@@ -731,7 +731,14 @@ fn preview_base64(path: &str, size: u32) -> Result<String, String> {
 // ---------- commands ----------
 
 #[tauri::command]
-fn list_volumes() -> Result<Vec<VolumeInfo>, String> {
+async fn list_volumes() -> Result<Vec<VolumeInfo>, String> {
+    // off the UI thread: counting media on a large external drive can take a moment
+    tauri::async_runtime::spawn_blocking(list_volumes_sync)
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+fn list_volumes_sync() -> Result<Vec<VolumeInfo>, String> {
     let mut out = Vec::new();
     let rd = fs::read_dir("/Volumes").map_err(|e| e.to_string())?;
     for e in rd.flatten() {
@@ -745,7 +752,13 @@ fn list_volumes() -> Result<Vec<VolumeInfo>, String> {
         }
         let has_dcim = p.join("DCIM").is_dir();
         let mut count = 0u32;
-        count_media(&p, &mut count, 9999);
+        if has_dcim {
+            // cameras keep media under DCIM — count it fully
+            count_media(&p.join("DCIM"), &mut count, 9999, 32);
+        } else {
+            // other drives: shallow sample is enough for the badge
+            count_media(&p, &mut count, 200, 2);
+        }
         out.push(VolumeInfo {
             name,
             path: p.to_string_lossy().to_string(),
@@ -757,8 +770,8 @@ fn list_volumes() -> Result<Vec<VolumeInfo>, String> {
     Ok(out)
 }
 
-fn count_media(dir: &Path, count: &mut u32, cap: u32) {
-    if *count >= cap {
+fn count_media(dir: &Path, count: &mut u32, cap: u32, depth: u32) {
+    if *count >= cap || depth == 0 {
         return;
     }
     if let Ok(rd) = fs::read_dir(dir) {
@@ -769,7 +782,7 @@ fn count_media(dir: &Path, count: &mut u32, cap: u32) {
             }
             let p = e.path();
             if p.is_dir() {
-                count_media(&p, count, cap);
+                count_media(&p, count, cap, depth - 1);
             } else if kind_of(&ext_of(&p)).is_some() {
                 *count += 1;
             }
