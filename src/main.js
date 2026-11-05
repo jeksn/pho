@@ -109,24 +109,60 @@ function renderCalendar() {
 
 async function refreshVolumes() {
   const el = $('#volumes');
+  const otherEl = $('#other-volumes');
+  const otherH = $('#other-volumes-h');
   el.innerHTML = '';
+  otherEl.innerHTML = '';
   try {
-    const vols = await invoke('list_volumes');
-    if (vols.length === 0) {
-      el.innerHTML = '<p class="muted">No camera found under /Volumes. Insert a card or use a manual path below.</p>';
-      return;
+    const [vols, settings] = await Promise.all([invoke('list_volumes'), invoke('get_settings')]);
+    const pinned = new Set(settings.pinned || []);
+    // a volume counts as a camera if it has a DCIM folder or was pinned explicitly
+    const cams = vols.filter((v) => v.has_dcim || pinned.has(v.path));
+    const others = vols.filter((v) => !v.has_dcim && !pinned.has(v.path) && v.file_count > 0);
+
+    if (cams.length === 0) {
+      el.innerHTML = '<p class="muted">No camera found under /Volumes. Insert a card, pin a drive below, or use Settings for a manual path.</p>';
     }
-    for (const v of vols) {
+    for (const v of cams) {
       const card = document.createElement('div');
       card.className = 'card';
       card.innerHTML = `
         <div class="name">${escapeHtml(v.name)}</div>
-        <div class="sub">${escapeHtml(v.path)}<br>${v.file_count} media files${v.has_dcim ? ' · DCIM' : ''}</div>`;
+        <div class="sub">${escapeHtml(v.path)}<br>${v.file_count} media files${v.has_dcim ? ' · DCIM' : ' · pinned'}</div>`;
+      const row = document.createElement('div');
+      row.className = 'row';
       const btn = document.createElement('button');
       btn.textContent = 'Import';
       btn.onclick = () => startImport(v.path);
-      card.appendChild(btn);
+      row.appendChild(btn);
+      if (!v.has_dcim) {
+        const unpin = document.createElement('button');
+        unpin.textContent = 'Unpin';
+        unpin.className = 'ghost small-btn';
+        unpin.onclick = async () => { await invoke('toggle_volume_pin', { path: v.path }); await refreshVolumes(); };
+        row.appendChild(unpin);
+      }
+      card.appendChild(row);
       el.appendChild(card);
+    }
+
+    if (others.length > 0) {
+      otherH.classList.remove('hidden');
+      for (const v of others) {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <div class="name">${escapeHtml(v.name)}</div>
+          <div class="sub">${escapeHtml(v.path)}<br>${v.file_count} media files · no DCIM</div>`;
+        const btn = document.createElement('button');
+        btn.textContent = 'Pin as source';
+        btn.className = 'ghost small-btn';
+        btn.onclick = async () => { await invoke('toggle_volume_pin', { path: v.path }); await refreshVolumes(); };
+        card.appendChild(btn);
+        otherEl.appendChild(card);
+      }
+    } else {
+      otherH.classList.add('hidden');
     }
   } catch (e) {
     el.innerHTML = `<p class="muted">Error: ${escapeHtml(String(e))}</p>`;

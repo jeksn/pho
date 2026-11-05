@@ -133,14 +133,43 @@ fn home_dir() -> PathBuf {
 #[derive(Serialize, Deserialize, Clone)]
 struct Settings {
     library: String,
+    #[serde(default)]
+    pinned: Vec<String>,
 }
 
+// PHO_SETTINGS overrides the location (used by tests)
 fn settings_path() -> PathBuf {
+    if let Ok(p) = std::env::var("PHO_SETTINGS") {
+        if !p.is_empty() {
+            return PathBuf::from(p);
+        }
+    }
     home_dir()
         .join("Library")
         .join("Application Support")
         .join("pho")
         .join("settings.json")
+}
+
+fn load_settings() -> Settings {
+    fs::read_to_string(settings_path())
+        .ok()
+        .and_then(|s| serde_json::from_str::<Settings>(&s).ok())
+        .unwrap_or_else(|| Settings {
+            library: default_library().to_string_lossy().to_string(),
+            pinned: Vec::new(),
+        })
+}
+
+fn save_settings(s: &Settings) -> Result<(), String> {
+    if let Some(parent) = settings_path().parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    fs::write(
+        settings_path(),
+        serde_json::to_string_pretty(s).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())
 }
 
 fn default_library() -> PathBuf {
@@ -844,12 +873,7 @@ fn discard_shot(folder: String, id: String) -> Result<Stats, String> {
 
 #[tauri::command]
 fn get_settings() -> Result<Settings, String> {
-    Ok(fs::read_to_string(settings_path())
-        .ok()
-        .and_then(|s| serde_json::from_str::<Settings>(&s).ok())
-        .unwrap_or_else(|| Settings {
-            library: default_library().to_string_lossy().to_string(),
-        }))
+    Ok(load_settings())
 }
 
 #[tauri::command]
@@ -860,18 +884,23 @@ fn set_library_path(path: String) -> Result<Settings, String> {
     }
     let p = PathBuf::from(&trimmed);
     fs::create_dir_all(&p).map_err(|e| format!("cannot create {trimmed}: {e}"))?;
-    let settings = Settings {
-        library: p.to_string_lossy().to_string(),
-    };
-    if let Some(parent) = settings_path().parent() {
-        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    let mut s = load_settings();
+    s.library = p.to_string_lossy().to_string();
+    save_settings(&s)?;
+    Ok(s)
+}
+
+// remember a drive as an import source even though it has no DCIM folder
+#[tauri::command]
+fn toggle_volume_pin(path: String) -> Result<Settings, String> {
+    let mut s = load_settings();
+    if let Some(i) = s.pinned.iter().position(|p| p == &path) {
+        s.pinned.remove(i);
+    } else {
+        s.pinned.push(path);
     }
-    fs::write(
-        settings_path(),
-        serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?,
-    )
-    .map_err(|e| e.to_string())?;
-    Ok(settings)
+    save_settings(&s)?;
+    Ok(s)
 }
 
 #[tauri::command]
@@ -911,6 +940,7 @@ pub fn run() {
             discard_shot,
             get_settings,
             set_library_path,
+            toggle_volume_pin,
             preview,
             reveal
         ])
@@ -1228,6 +1258,23 @@ mod tests {
             shots[0].preview
         );
         assert!(!shots[0].preview.starts_with("/old/location"));
+    }
+
+    #[test]
+    fn volume_pin_toggle_roundtrips() {
+        let dir = tmpdir("settings");
+        std::env::set_var("PHO_SETTINGS", dir.join("settings.json"));
+        let s = toggle_volume_pin("/Volumes/SSD".to_string()).unwrap();
+        assert_eq!(s.pinned, vec!["/Volumes/SSD".to_string()]);
+        let s = toggle_volume_pin("/Volumes/SSD".to_string()).unwrap();
+        assert!(s.pinned.is_empty());
+        // library setting survives a pin toggle
+        let s = set_library_path(dir.join("lib").to_string_lossy().to_string()).unwrap();
+        assert!(s.library.ends_with("lib"));
+        let s = toggle_volume_pin("/Volumes/CAM".to_string()).unwrap();
+        assert_eq!(s.pinned, vec!["/Volumes/CAM".to_string()]);
+        assert!(s.library.ends_with("lib"));
+        std::env::remove_var("PHO_SETTINGS");
     }
 
     #[test]
